@@ -58,7 +58,7 @@ To reproduce the simulation study from Section 4 of the paper, located in the `s
 
 To reproduce the analysis and figures for the PM2.5 data (Section 5.1) in `realdata/PM2.5/`:
 
-0.  **Download Data** from \url{https://data.tpdc.ac.cn/zh-hans/data/d3878788-7bef-4249-9973-07d4b2e46cb8} and \url{https://data.tpdc.ac.cn/home}.
+0.  **Download Data** from https://data.tpdc.ac.cn/zh-hans/data/d3878788-7bef-4249-9973-07d4b2e46cb8 and https://data.tpdc.ac.cn/home.
 1.  **Data Preprocessing:** Run the preprocessing scripts in the following order. Ensure the paths to raw data files are correct within each script.
 *   `preprocess_for_CMFD.R`
 *   `preprocess_for_CHAP.R`
@@ -70,7 +70,7 @@ To reproduce the analysis and figures for the PM2.5 data (Section 5.1) in `reald
 
 To reproduce the analysis for the P2P data (Section 5.2) in `realdata/P2P/`:
 
-0.  **Download Data** from \url{https://www.kaggle.com/datasets/sid321axn/bondora-peer-to-peer-lending-loan-data/data}.
+0.  **Download Data** from https://www.kaggle.com/datasets/sid321axn/bondora-peer-to-peer-lending-loan-data/data.
 1.  **Data Preprocessing:** Run `preprocess.R`.
 2.  **Run Main Analysis:** Execute `RAVAS_P2P.R`.
 3.  **Generate Table:** Run `organize.R` to compile the results into **Table 1** of the paper.
