@@ -1,4 +1,4 @@
-setwd('C:/Users/annie/Downloads/accepted_2007_to_2018Q4.csv')
+setwd('')
  
 ### exclude unrelevant varaibles
 data<- read.csv('accepted_2007_to_2018Q4.csv')
