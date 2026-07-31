@@ -1,5 +1,5 @@
 rm(list=ls())
-setwd('.../ExpandingObs')
+setwd('.../ExpandingObservables')
 
 library(foreach)
 library(doParallel)
