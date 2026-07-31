@@ -13,7 +13,7 @@ This repository contains all the code and data necessary to reproduce the result
 
 │   ├── Setting_FM-ID.R            # Configuration of simulation parameters
 
-│   ├── organize.R                 # Generates Figures 3-5 for the paper
+│   ├── organize.R                 # Generates Figures 3 for the paper
 
 │   └── organize_AVAS.R            # Generates Figures in Section 3 of the supplement
 
@@ -27,7 +27,7 @@ This repository contains all the code and data necessary to reproduce the result
 
 │   │   ├── preprocess_for_PM2.5.R     # Preprocessing for PM2.5 data
 
-│   │   └── RAVAS_for_PM.5.R           # Main analysis producing Figures 6-7
+│   │   └── RAVAS_for_PM.5.R           # Main analysis producing Figures 4-5
 
 │   └── P2P/                       # Analysis for Section 5.2 (P2P Data)
 
@@ -39,7 +39,6 @@ This repository contains all the code and data necessary to reproduce the result
 
 └── supp/                          # Supplementary material
 
-└── organize.R                 # Generates Figure 4 for the supplement
 
 ## 🔧 Detailed Reproduction Guide
 
