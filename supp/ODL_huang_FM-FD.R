@@ -1,6 +1,5 @@
 # rm(list=ls())
-# # setwd('/home/yangy/OnlineHD')
-# setwd('C:/Users/annie/OneDrive/ImportantFiles/projects/1. InProgress/Online HD/code')
+# setwd('')
 # library(mvnfast)
 # library(glmnet)
 # library(MASS)
