@@ -5,9 +5,9 @@ This repository contains all the code and data necessary to reproduce the result
 ## 📁 Repository Structure
 ├── FNS.R                          # Core functions used across analyses
 
-├── simu                           # Main simulation study (Section 4) and the supplementary simulation
+├── simu/                          # Main simulation study (Section 4) and the supplementary simulation
 
-│   ├── sim.R                      # Master script to run the simulation
+│   ├── simu.R                      # Master script to run the simulation
 
 │   ├── R-AVAS_FM-ID.R             # Main simulation algorithm
 
