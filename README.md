@@ -48,9 +48,9 @@ To reproduce the simulation study from Section 4 of the paper, located in the `s
 
 1.  **Configure Parameters (Optional):** Adjust simulation settings in `simu/Setting_FM-ID.R` if needed.
 2.  **Run the Simulation:** Execute the master script `simu/sim.R`. This will call the main algorithm `R-AVAS_FM-ID.R`.
-3.  **Generate Figures:** Run `simu/organize.R` to produce the final figures (Figures 3, 4, and 5 from the paper).
+3.  **Generate Figures:** Run `simu/organize.R` to produce the final figures (Figures 3 from the paper).
 
-> **Note:** The scripts in the `simu/` directory can also generate Figures 1-3 from the supplementary material by modifying the relevant parameters in `Setting_FM-ID.R` [1](@ref).
+> **Note:** The scripts in the `simu/` directory can also generate Figures 1 and 2 from the supplementary material by modifying the relevant parameters in `Setting_FM-ID.R` [1](@ref).
 
 ### 2. Real-Data Analyses (Section 5)
 
@@ -63,7 +63,7 @@ To reproduce the analysis and figures for the PM2.5 data (Section 5.1) in `reald
 *   `preprocess_for_CHAP.R`
 *   `preprocess_for_PM2.5.R`
 2.  **Run Main Analysis:** Execute `RAVAS_for_PM.5.R` to perform the primary analysis.
-3.  **Output:** This will generate the results for **Figures 6 and 7** of the paper.
+3.  **Output:** This will generate the results for **Figures 4 and 5** of the paper.
 
 #### 2.2 P2P Analysis (Section 5.2)
 
@@ -78,7 +78,7 @@ To reproduce the analysis for the P2P data (Section 5.2) in `realdata/P2P/`:
 To reproduce the additional simulation from the supplementary material, located in the `supp/` directory:
 
 1.  **Run Supplementary Simulation:** Execute `supp/sim.R`.
-2.  **Generate Supplementary Figure:** Run `supp/organize.R` to produce **Figure 4** from the supplement.
+2.  **Generate Supplementary Figure:** Run `supp/organize.R` to produce **Figure 3** from the supplement.
 
 ## 📊 Output Summary
 
