@@ -1,16 +1,36 @@
 rm(list=ls())
 gc()
-setwd('C:/Users/annie/Downloads/accepted_2007_to_2018Q4.csv')
+# setwd('')
 
 
 library(glmnet)
 library(MASS)
 library(fastDummies)
-source('FNS.R')
+source('realdata/P2P/FNS.R')
 
 
 K_train <- 2250 
+## Data-driven warm-up parameters
+delta_sigma <- 0.10
+c_sigma <- 1.5
+q_cov <- 0
+R_sigma <- NULL
 
+## Main analysis uses nominal radius.
+radius_mult <- 1
+
+## The theoretical warm-up lower bound contains unspecified constants.
+## We calibrate warm_const once so that the first warm-up is on the scale
+## of one data block, matching the previous n0 = n_blk implementation.
+warm_const <- NA_real_
+warm_target_ratio <- 0.95
+warm_grid_size <- K_train
+
+## Use standardized covariates only for the covariance-complexity estimate.
+standardize_warmup <- TRUE
+
+## Ensure at least one update after warm-up before hard selection, if needed.
+soft_min_blocks <- 1
 
 ####### training ############
 {
@@ -25,6 +45,13 @@ K_train <- 2250
   beta_o <- list(); R2_o <- c(); y_hat <- c(); y_real <- c()
   sigma_hat <- 1; years <- c(); sigma_hat0 <- 0
   K_cv <- 2;  C_lam_opt0 <- 0; cv_num <- 0
+  warm_done <- FALSE
+  iota0_obs <- NA_real_
+  iota0_o <- c()
+  warm_M_upper_o <- c()
+  warm_rhs_o <- c()
+  warm_const_o <- c()
+  warm_stop_k_o <- c()
 }
 
 ## load data block
@@ -35,7 +62,7 @@ for(k in 1:K_train)
   print(k)
   {
     # load
-    file_cur <- paste0('P2Pdata_',k,'.csv')
+    file_cur <- paste0('realdata/P2P/data/P2Pdata_',k,'.csv')
     data_cur <- read.csv(file_cur)
     data_cur <- data_cur[,-c(1,2,3)]
     # response
@@ -75,7 +102,9 @@ for(k in 1:K_train)
   t_start <- Sys.time()
   if(delta_p > 0){
     
-    n0 <- n_blk
+    warm_done <- FALSE
+    iota0_obs <- NA_real_
+    n0 <- NA_real_    
     print('delta_p>0')
     N_eff <- n_blk
     W <- n_blk/N_eff
@@ -122,27 +151,126 @@ for(k in 1:K_train)
   
   
   # initial estimate
-  if(N_eff<=n0){
-    if(N_eff==n0){
-      set.seed(123) 
-      cv_fit <- cv.glmnet(Obs[,-ncol(Obs)], Obs[,ncol(Obs)], nfolds = 5)  
-      lam <- cv_fit$lambda.min
-      modelfit <- glmnet(Obs[,-ncol(Obs)], Obs[,ncol(Obs)], lambda = lam)
-      beta <- as.vector(modelfit$beta)
-      sigma_hat <- min(sigma_hat,
-                       sqrt(mean((Obs[,ncol(Obs)]-Obs[,-ncol(Obs)]%*%beta)^2)))
-      tmpt_p <- length(intersect(I,idx_abs))
-      C_lam <- lam/(sigma_hat * sqrt(log(tmpt_p) / (N_eff / 2)))
-      C_lam_set <- seq(1, 2.8, 0.2)*C_lam
-      print('initial estimation')
+  ## Data-driven warm-up and initial estimate
+  if(!warm_done){
+    
+    X_warm <- Obs[, -ncol(Obs), drop = FALSE]
+    
+    ## Calibrate warm_const once so that the first stopping time is roughly
+    ## one data block, matching the previous n0 = n_blk implementation.
+    if(!is.finite(warm_const)){
+      
+      warm_tmp <- warmup_check(
+        X_obs = X_warm,
+        grid_size = warm_grid_size,
+        delta_sigma = delta_sigma,
+        c_sigma = c_sigma,
+        q_cov = q_cov,
+        R_sigma = R_sigma,
+        warm_const = 1,
+        radius_mult = radius_mult,
+        standardize = standardize_warmup
+      )
+      
+      warm_const <- warm_target_ratio * warm_tmp$N / warm_tmp$rhs
+      
+      cat(
+        "[warm-up calibration]",
+        "k =", k,
+        "N =", warm_tmp$N,
+        "a =", warm_tmp$a,
+        "M_upper =", round(warm_tmp$M_upper, 3),
+        "rhs0 =", round(warm_tmp$rhs, 1),
+        "warm_const =", signif(warm_const, 4),
+        "\n"
+      )
     }
-    next
-  }
-  
+    
+    warm_out <- warmup_check(
+      X_obs = X_warm,
+      grid_size = warm_grid_size,
+      delta_sigma = delta_sigma,
+      c_sigma = c_sigma,
+      q_cov = q_cov,
+      R_sigma = R_sigma,
+      warm_const = warm_const,
+      radius_mult = radius_mult,
+      standardize = standardize_warmup
+    )
+    
+    cat(
+      "[warm-up check]",
+      "k =", k,
+      "N_eff =", N_eff,
+      "a =", warm_out$a,
+      "M_hat =", round(warm_out$M_hat, 3),
+      "r_sigma =", round(warm_out$r_sigma, 3),
+      "M_upper =", round(warm_out$M_upper, 3),
+      "rhs =", round(warm_out$rhs, 1),
+      "N/rhs =", round(warm_out$N / warm_out$rhs, 3),
+      "\n"
+    )
+    
+    if(warm_out$stop){
+      
+      warm_done <- TRUE
+      iota0_obs <- N_eff
+      n0 <- iota0_obs
+      
+      iota0_o <- c(iota0_o, iota0_obs)
+      warm_M_upper_o <- c(warm_M_upper_o, warm_out$M_upper)
+      warm_rhs_o <- c(warm_rhs_o, warm_out$rhs)
+      warm_const_o <- c(warm_const_o, warm_const)
+      warm_stop_k_o <- c(warm_stop_k_o, k)
+      
+      set.seed(123)
+      cv_fit <- cv.glmnet(
+        Obs[, -ncol(Obs), drop = FALSE],
+        Obs[, ncol(Obs)],
+        nfolds = 5
+      )
+      
+      lam <- cv_fit$lambda.min
+      modelfit <- glmnet(
+        Obs[, -ncol(Obs), drop = FALSE],
+        Obs[, ncol(Obs)],
+        lambda = lam
+      )
+      
+      beta <- as.vector(modelfit$beta)
+      
+      sigma_hat <- min(
+        sigma_hat,
+        sqrt(mean((Obs[, ncol(Obs)] -
+                     Obs[, -ncol(Obs), drop = FALSE] %*% beta)^2))
+      )
+      
+      tmpt_p <- max(2, length(intersect(I,idx_abs)))
+      C_lam <- lam/(sigma_hat * sqrt(log(tmpt_p) / (N_eff / 2)))
+      C_lam_set <- seq(1, 2.8, 0.2) * C_lam
+      
+      rm(cv_fit, modelfit)
+      
+      print(paste0(
+        "initial estimation by data-driven warm-up, iota0_obs=", iota0_obs
+      ))
+      
+    }
+    
+    if(!warm_done){
+      next
+    }else{
+      next
+    }
+  }  
   pt <- length(idx_imp)
   print(paste0('dim=',pt, ' sigma_hat=', round(sigma_hat,3)))
   
-  if(N_eff <= length(I)){
+  soft_min_blocks <- 10
+  soft_min_obs <- soft_min_blocks * n_blk
+  iota_star_eff <- max(length(I), iota0_obs + soft_min_obs)
+  
+  if(N_eff <= iota_star_eff){
     
     Cy_total <- sum(Cy); CXy_total <- rowSums(CXy); CXX_total <- apply(CXX, c(1,2), sum)
     tmpt_p <- pt # length(intersect(I,idx_abs))
@@ -197,8 +325,22 @@ for(k in 1:K_train)
     beta <- gram%*%matrix(CXy_total, pt, 1)
     sigma_hat <- sqrt(Cy_total - 2*matrix(beta,1)%*%CXy_total + matrix(beta,1)%*%CXX_total%*%beta)
     sigma_hat <- min(sigma_hat,10)
-    beta1 <- rep(0.1/sqrt(n0)*as.vector(sigma_hat),pt)# C_lam_opt/sqrt(N_eff)*diag(gram)^(1/2)*as.vector(sigma_hat)
-    beta <- beta * sapply(1:pt, function(j){abs(beta[j])>abs(beta1[j])})
+    hard_const <- 0.05
+    min_keep <- 30
+    
+    se_beta <- sqrt(pmax(diag(gram), 0)) * as.vector(sigma_hat) / sqrt(N_eff)
+    thr <- hard_const * se_beta
+    
+    idx_keep <- which(abs(beta) > thr)
+    
+    ## prevent over-aggressive deletion in real data
+    if(length(idx_keep) < min_keep){
+      idx_keep <- order(abs(beta), decreasing = TRUE)[
+        seq_len(min(min_keep, length(beta)))
+      ]
+    }
+    
+    beta[-idx_keep] <- 0  
   }
   
   t_end <- Sys.time()
@@ -228,9 +370,9 @@ for(k in 1:K_train)
   }
   if(k==K_train){save.image(paste0('k=',k,'.Rdata'))}
 }
-save(pt_o,time_o,beta_o,R2_o,sigma_o,k_o,
-     file = 'P2P_train_results.Rdata')
-
+save(pt_o, time_o, beta_o, R2_o, sigma_o, k_o,
+     iota0_o, warm_M_upper_o, warm_rhs_o, warm_const_o, warm_stop_k_o,
+     file = 'res/P2P_train_results.Rdata')
 
 
 ######### test ############
@@ -239,7 +381,7 @@ y_test <- c(); X_test <- c()
 for(k in (K_train+1):K)
 {
   print(k)
-  file_cur <- paste0('P2Pdata_',k,'.csv')
+  file_cur <- paste0('realdata/P2P/data/P2Pdata_',k,'.csv')
   data_cur <- read.csv(file_cur)
   data_cur <- data_cur[,-c(1,2,3)]
   y <- data_cur$int_rate
@@ -271,4 +413,4 @@ for(i in 1:length(beta_o)){
   err_test_o <- c(err_test_o, mean((y_test-X_test%*%beta_expan)^2))
 }
 
-save(err_test_o, y_test, file = paste0('P2P_test_results.Rdata'))
+save(err_test_o, y_test, file = paste0('res/P2P_test_results.Rdata'))

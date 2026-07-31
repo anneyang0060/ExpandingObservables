@@ -1,27 +1,27 @@
 rm(list=ls())
 gc()
-setwd('C:/Users/annie/Downloads/accepted_2007_to_2018Q4.csv')
-load('pk.Rdata')
-plot(pk)
-
-pk_unique <- unique(pk)
-new_batch <- c()
-for(p in pk_unique){
-  new_batch <- c(new_batch, max(which(pk==p)))
-}
-
-features <- list()
-for(k in new_batch){
-  file_cur <- paste0('P2Pdata_',k,'.csv')
-  data_cur <- read.csv(file_cur)
-  features <- c(features, list(names(data_cur)))
-}
+# setwd('')
 
 
-load('P2P_train_results_1.Rdata')
+
+
+load('res/P2P_train_results.Rdata')
 p_k <- c()
 for(i in 1:length(beta_o)){
   p_k <- c(p_k, length(beta_o[[i]]))
+}
+pk_unique <- unique(p_k)
+new_batch <- c()
+for(p in pk_unique){
+  new_batch <- c(new_batch, max(which(p_k==p)))
+}
+
+
+features <- list()
+for(k in new_batch){
+  file_cur <- paste0('realdata/P2P/data/P2Pdata_',k,'.csv')
+  data_cur <- read.csv(file_cur)
+  features <- c(features, list(names(data_cur)))
 }
 
 final_b <- c()
@@ -32,7 +32,7 @@ final_b <- c(final_b, length(k_o))
 
 for(b in final_b){
   print(paste0('################## features of beta_',b))
-  file_cur <- paste0('P2Pdata_',b,'.csv')
+  file_cur <- paste0('realdata/P2P/data/P2Pdata_',b,'.csv')
   data_cur <- read.csv(file_cur)
   data_cur <- data_cur[,-c(1,2,3)]
   # covariate
@@ -63,8 +63,8 @@ for(b in final_b){
 }
 
 
-load('P2P_test_results_1.Rdata')
-blk <- c(100,500,800,1300,2000,2250)
+load('res/P2P_test_results.Rdata')
+blk <- c(100,200,500,1000,2000,2250)
 idx <- c()
 for (b in blk) {
   idx <- c(idx, which(k_o == b))
