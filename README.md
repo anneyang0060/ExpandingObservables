@@ -85,9 +85,8 @@ To reproduce the additional simulation from the supplementary material, located 
 
 | Code Path | Corresponds to Paper Section | Output Generated |
 | :--- | :--- | :--- |
-| `simu/organize.R` | Section 4 (Main Simulation) | Figures 3, 4, 5 |
-| `realdata/PM2.5/RAVAS_for_PM.5.R` | Section 5.1 (PM2.5 Analysis) | Figures 6, 7 |
+| `simu/organize.R` | Section 4 (Main Simulation) | Figures 3 |
+| `realdata/PM2.5/RAVAS_for_PM.5.R` | Section 5.1 (PM2.5 Analysis) | Figures 4, 5 |
 | `realdata/P2P/organize.R` | Section 5.2 (P2P Analysis) | Table 1 |
-| `simu/` (with parameter changes) | Supplement | Figures 1, 2, 3 |
-| `supp/organize.R` | Supplement | Figure 4 |
+| `simu/organize_AVAS.R` | Supplement | Figure 3 |
 
