@@ -13,7 +13,9 @@ This repository contains all the code and data necessary to reproduce the result
 
 │   ├── Setting_FM-ID.R            # Configuration of simulation parameters
 
-│   └── organize.R                 # Generates Figures 3-5 for the paper
+│   ├── organize.R                 # Generates Figures 3-5 for the paper
+
+│   └── organize_AVAS.R            # Generates Figures in Section 3 of the supplement
 
 ├── realdata/                      # Real-data analyses (Section 5)
 
