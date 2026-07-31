@@ -5,7 +5,7 @@ This repository contains all the code and data necessary to reproduce the result
 ## 📁 Repository Structure
 ├── FNS.R                          # Core functions used across analyses
 
-├── simu/                          # Main simulation study (Section 4)
+├── simu/                          # Main simulation study (Section 4) and the supplementary simulation
 
 │   ├── sim.R                      # Master script to run the simulation
 
@@ -36,8 +36,6 @@ This repository contains all the code and data necessary to reproduce the result
 │       └── organize.R              # Produces Table 1 for the paper
 
 └── supp/                          # Supplementary material
-
-├── sim.R                      # Runs the supplementary simulation
 
 └── organize.R                 # Generates Figure 4 for the supplement
 
