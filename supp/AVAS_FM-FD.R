@@ -1,25 +1,48 @@
-rm(list=ls())
-# setwd('/home/yangy/OnlineHD')
-setwd('C:/Users/annie/OneDrive/ImportantFiles/projects/1. InProgress/Online HD/fixed model/code')
-library(mvnfast)
-library(glmnet)
-library(MASS)
-source('FNS.R')
-rho <- 0
-p <- 1000
-s <- 10
-Tmax <- 10000
-n_blk <- 10
-sigma_eps<- 1
-n0 <- 200
-beta_true <- rep(0,p)
-beta_true[1:10] <- rep(c(3,-3),s/2)
-sigma_X <-matrix(0, p,p)
-for(k in 1:p){
-  sigma_X[k,] <- sapply(1:p, function(l){rho^(abs(k-l))})
-}
-K_cv <- 2
-sd <- 1
+# rm(list=ls())
+# # setwd('C:/Users/annie/OneDrive/ImportantFiles/projects/1. InProgress/Online HD/fixed model/code to submit')
+# library(mvnfast)
+# library(glmnet)
+# library(MASS)
+# source('FNS.R')
+# 
+# 
+# rho <- 0
+# p <- 1000
+# s <- 10
+# Tmax <- 10000
+# n_blk <- 10
+# sigma_eps<- 1
+# n0 <- 200
+# beta_true <- rep(0,p)
+# beta_true[1:10] <- rep(c(3,-3),s/2)
+# sigma_X <-matrix(0, p,p)
+# for(k in 1:p){
+#   sigma_X[k,] <- sapply(1:p, function(l){rho^(abs(k-l))})
+# }
+# K_cv <- 2
+# sd <- 95
+# radius_mult <- 0.1
+
+
+## data-driven warm-up parameters for fixed-dimension degeneracy
+warm_grid_ratio <- 1.25
+warm_min_blocks <- 50
+delta_sigma <- 0.10
+c_sigma <- 1.5
+
+## Toeplitz covariance is weakly sparse rather than exactly sparse
+q_cov <- 0.5
+R_sigma <- ifelse(
+  rho == 0,
+  1,
+  min(p, 1 + 2 * rho^q_cov / (1 - rho^q_cov))
+)
+
+## finite-sample calibration
+warm_const <- 0.01
+
+## hard-selection transition: observation scale c_h * p
+c_h <- 2
 
 ############################# dynamic screening with lasso ##########
 Mcl <- 50
@@ -27,15 +50,52 @@ cl <- makeCluster(Mcl)
 registerDoParallel(cl)
 res_c <- foreach(sd=sds, .packages = c('MASS' ,'mvnfast','glmnet')) %dopar%
 {
-  Cy <- rep(0, K_cv); CXX <- array(0,dim=c(p,p,K_cv)); CXy <- matrix(0,p,K_cv)
-  Obs <- c(); C_lam_set <- 1:10
-  sigma_hat <- 1; sigma_hat0 <- 0; p_old <- 0
-  st <- 0; pt <- 0; sigma_o <- c()
-  idx_imp <- c(); idx_abs <- 1:p
-  err_beta_o <- c(); err_y_o <- c()
-  time_o <- c(); pt_o <- c(); est_time <- c(); miss <- c()
-  C_lam_opt0 <- 0; cv_num <- 0
+  Cy <- rep(0, K_cv)
+  CXX <- array(0, dim = c(p, p, K_cv))
+  CXy <- matrix(0, p, K_cv)
+  
+  Obs <- c()
+  C_lam_set <- c(0.5,1,2,3,5)
+  
+  sigma_hat <- 1
+  sigma_hat0 <- 0
+  p_old <- 0
+  
+  st <- 0
+  pt <- 0
+  sigma_o <- c()
+  
+  idx_imp <- c()
+  idx_abs <- 1:p
+  
+  err_beta_o <- c()
+  err_y_o <- c()
+  time_o <- c()
+  pt_o <- c()
+  est_time <- c()
+  miss <- c()
+  
+  C_lam_opt0 <- 0
+  cv_num <- 0
   tmpt_p <- p
+  
+  ## data-driven warm-up variables
+  warm_done <- FALSE
+  iota0_obs <- NA
+  
+  warm_grid <- make_warm_grid(
+    min_blocks = warm_min_blocks,
+    max_blocks = floor(Tmax / n_blk),
+    ratio = warm_grid_ratio
+  )
+  warm_grid_pos <- 1
+  
+  iota0_o <- c()
+  M_upper_o <- c()
+  warm_rhs_o <- c()
+  
+  ## fixed-dimension hard-selection transition
+  iota_star_obs <- ceiling(c_h * p)
   
   set.seed(sd)
   
@@ -51,34 +111,113 @@ res_c <- foreach(sd=sds, .packages = c('MASS' ,'mvnfast','glmnet')) %dopar%
     
     # update statistics
     {
-      if(t <= n0){
-        Obs <- rbind(Obs, cbind(matrix(X,n_blk),y))
-      }
-      X <- X[,idx_abs]
-      for(k in 1:K_cv){
-        sub_obs <- (n_blk/K_cv*(k-1)+1):(n_blk/K_cv*k)
-        Cy[k] <- ((t-n_blk)/t * Cy[k] + 1/t * sum(y[sub_obs]^2))
-        CXX[,,k] <- (t-n_blk)/t * CXX[,,k] +1/t * t(X[sub_obs,])%*%X[sub_obs,]
-        CXy[,k] <- (t-n_blk)/t * CXy[,k] + 1/t * t(X[sub_obs,])%*%y[sub_obs]  
+      if(!warm_done){
+        Obs <- rbind(Obs, cbind(matrix(X, n_blk), y))
       }
       
+      X <- X[, idx_abs, drop = FALSE]
+      
+      for(k in 1:K_cv){
+        sub_obs <- (n_blk / K_cv * (k - 1) + 1):(n_blk / K_cv * k)
+        Cy[k] <- ((t - n_blk) / t * Cy[k] + 1 / t * sum(y[sub_obs]^2))
+        CXX[, , k] <- (t - n_blk) / t * CXX[, , k] +
+          1 / t * t(X[sub_obs, , drop = FALSE]) %*% X[sub_obs, , drop = FALSE]
+        CXy[, k] <- (t - n_blk) / t * CXy[, k] +
+          1 / t * t(X[sub_obs, , drop = FALSE]) %*% y[sub_obs]
+      }
     }
     
     # initial estimate
-    if(t <= n0){
-      if(t ==n0){
-        cvfit <- cv.glmnet(Obs[,-ncol(Obs)], Obs[,ncol(Obs)])
-        modelfit <- glmnet(Obs[,-ncol(Obs)], Obs[,ncol(Obs)], lambda = cvfit$lambda.min)
-        beta <- as.vector(modelfit$beta)
-        beta_opt <- beta
-        rm(cvfit, modelfit, Obs)
+    # data-driven warm-up stage
+    if(!warm_done){
+      
+      m_now <- t / n_blk
+      
+      check_now <- FALSE
+      if(warm_grid_pos <= length(warm_grid)){
+        check_now <- (m_now >= warm_grid[warm_grid_pos])
       }
+      
+      if(check_now){
+        
+        X_warm <- Obs[, -ncol(Obs), drop = FALSE]
+        
+        warm_out <- warmup_check(
+          X_obs = X_warm,
+          grid_size = length(warm_grid),
+          delta_sigma = delta_sigma,
+          c_sigma = c_sigma,
+          q_cov = q_cov,
+          R_sigma = R_sigma,
+          warm_const = warm_const,
+          radius_mult = radius_mult
+        )
+        
+        cat(
+          "[FD warm-up check]",
+          "rho =", rho,
+          "t =", t,
+          "N =", warm_out$N,
+          "a =", warm_out$a,
+          "M_hat =", round(warm_out$M_hat, 3),
+          "r_sigma =", round(warm_out$r_sigma, 3),
+          "M_upper =", round(warm_out$M_upper, 3),
+          "rhs =", round(warm_out$rhs, 1),
+          "N/rhs =", round(warm_out$N / warm_out$rhs, 4),
+          "\n"
+        )
+        
+        if(warm_out$stop){
+          
+          warm_done <- TRUE
+          iota0_obs <- t
+          
+          iota0_o <- c(iota0_o, iota0_obs)
+          M_upper_o <- c(M_upper_o, warm_out$M_upper)
+          warm_rhs_o <- c(warm_rhs_o, warm_out$rhs)
+          
+          cvfit <- cv.glmnet(
+            Obs[, -ncol(Obs), drop = FALSE],
+            Obs[, ncol(Obs)]
+          )
+          modelfit <- glmnet(
+            Obs[, -ncol(Obs), drop = FALSE],
+            Obs[, ncol(Obs)],
+            lambda = cvfit$lambda.min
+          )
+          
+          beta <- as.vector(modelfit$beta)
+          beta_opt <- beta
+          
+          rm(cvfit, modelfit, Obs)
+          
+          cat(
+            "[FD warm-up done]",
+            "rho =", rho,
+            "iota0_obs =", iota0_obs,
+            "M_upper =", round(warm_out$M_upper, 3),
+            "rhs =", round(warm_out$rhs, 1),
+            "\n"
+          )
+          
+        } else {
+          
+          warm_grid_pos <- min(warm_grid_pos + 1, length(warm_grid))
+          
+        }
+      }
+      
+      # if(!warm_done){
+      #   next
+      # } else {
+      #   next
+      # }
       next
     }
     
     pt <- length(idx_abs)
     
-    if(t <= 2*tmpt_p){
+    if(t <= iota_star_obs || t <= iota0_obs){
       
       Cy_total <- sum(Cy); CXy_total <- rowSums(CXy); CXX_total <- apply(CXX, c(1,2), sum)
       tmpt_p <- length(idx_abs)
@@ -96,7 +235,7 @@ res_c <- foreach(sd=sds, .packages = c('MASS' ,'mvnfast','glmnet')) %dopar%
           
           for(C_lam in C_lam_set){
             
-            lam <- C_lam * sigma_hat * sqrt(log(tmpt_p)^(delta) / (t / 2))            
+            lam <- C_lam * sigma_hat * sqrt(log(tmpt_p) / (t / 2))            
             lam_vec <- rep(lam, tmpt_p)
             err1 <- numeric(K_cv)
             
@@ -159,6 +298,7 @@ res_c <- foreach(sd=sds, .packages = c('MASS' ,'mvnfast','glmnet')) %dopar%
       err_beta_o <- c(err_beta_o, err_beta)
       pt_o <- c(pt_o, pt)
       miss <- c(miss,miss1)
+      est_time <- c(est_time,t)
       sigma_o <- c(sigma_o,sigma_hat)
       time_o <- c(time_o, as.numeric(t_end-t_start))
       print(paste0('t=',t,' err_beta=',round(err_beta,3),
@@ -167,7 +307,7 @@ res_c <- foreach(sd=sds, .packages = c('MASS' ,'mvnfast','glmnet')) %dopar%
     # lam_o <- c(lam_o, list(lam_set))
   }
   if(!dir.exists(prefix)){dir.create(prefix)}
-  save(err_beta_o, time_o, pt_o,  miss, sigma_o,
+  save(err_beta_o, time_o, pt_o,  miss, sigma_o, est_time,
        file = paste0(prefix,'/','sd',sd,'.Rdata'))
   
 }
