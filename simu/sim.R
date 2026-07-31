@@ -1,5 +1,5 @@
 rm(list=ls())
-setwd('/home/yangying/ExpandingObs')
+setwd('.../ExpandingObs')
 
 library(foreach)
 library(doParallel)
