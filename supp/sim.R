@@ -30,22 +30,22 @@ for(rho in c(0,  0.3, 0.7)){
   K_cv <- 2
   
   prefix <- paste0('res/AVAS_rho',rho)
-  source('simu/AVAS_FM-FD.R')
+  source('supp/AVAS_FM-FD.R')
   
   prefix <- paste0('res/BR_fan_rho',rho)
-  source('simu/BR_fan_FM-FD.R')
+  source('supp/BR_fan_FM-FD.R')
 
 
   prefix <- paste0('res/TSGD_rho',rho)
-  source('simu/TSGD_FM-FD.R')
+  source('supp/TSGD_FM-FD.R')
 
   n_blk <- 100
 
   prefix <- paste0('res/ODL_huang_rho',rho)
-  source('simu/ODL_huang_FM-FD.R')
+  source('supp/ODL_huang_FM-FD.R')
 
   prefix <- paste0('res/OLL_sun_rho',rho)
-  source('simu/OLL_sun.R')
+  source('supp/OLL_sun.R')
   
 }
 
